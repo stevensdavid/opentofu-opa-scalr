@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Configuration
+FOLDER_TO_WATCH="opentofu-opa"
+BUNDLE_SCRIPT="./bundle_policies.sh" # Your bundling script
+BUNDLE_OUTPUT="functions"            # The output file from your bundling
+
+# Get staged files that are in the watched folder
+CHANGED_FILES=$(git diff --cached --name-only | grep "^$FOLDER_TO_WATCH")
+
+if [ -n "$CHANGED_FILES" ]; then
+    echo "Changes detected in $FOLDER_TO_WATCH:"
+    echo "$CHANGED_FILES"
+
+    # Execute bundling script
+    if [ -x "$BUNDLE_SCRIPT" ]; then
+        echo "Running bundling script..."
+        $BUNDLE_SCRIPT
+
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -ne 0 ]; then
+            echo "Bundling script failed with exit code $EXIT_CODE"
+            echo "Commit aborted"
+            exit 1
+        fi
+
+        # Add the bundle to the commit
+        git add "$BUNDLE_OUTPUT"
+
+        echo "Bundle has been created and added to the commit"
+    else
+        echo "Error: Bundling script $BUNDLE_SCRIPT not found or not executable"
+        exit 1
+    fi
+fi
+
+exit 0

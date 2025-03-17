@@ -1,0 +1,11 @@
+rules:
+  idiomatic:
+    directory-package-mismatch:
+      # one of "error", "warning", "ignore"
+      level: ignore
+      # exclude _test suffixes from package paths before comparing
+      # them to directory structure paths. when set to false, a
+      # package like authz.policy_test would need to be placed in
+      # an authz/policy_test directory, and if set to true (default)
+      # would be expected to be in authz/policy
+      exclude-test-suffix: true

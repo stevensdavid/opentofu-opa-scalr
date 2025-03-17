@@ -1,0 +1,4 @@
+.terraform*
+*.tfplan
+mock.json
+.envrc

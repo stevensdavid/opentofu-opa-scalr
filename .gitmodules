@@ -1,0 +1,3 @@
+[submodule "opentofu-opa"]
+	path = opentofu-opa
+	url = git@github.com:stevensdavid/opentofu-opa.git
