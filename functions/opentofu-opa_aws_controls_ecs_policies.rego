@@ -4,7 +4,7 @@ import data.utils
 
 import rego.v1
 
-fargate_uses_latest_version(plan) := {rule |
+evaluate_ecs_1(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_service")
 	resource.configuration.launch_type == "FARGATE"
 	resource.configuration.platform_version != "LATEST"
@@ -13,76 +13,86 @@ fargate_uses_latest_version(plan) := {rule |
 		"severity": "medium",
 		"reason": "Require Amazon ECS Fargate Services to run on the latest Fargate platform version",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs1",
 	}
 }
 
-clusters_enable_container_insights(plan) := {rule |
+evaluate_ecs_2(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_cluster")
 	cluster_insights_is_disabled(resource.configuration)
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.2", "fsbp": "ECS.12", "opa": "aws.controls.ecs.2"},
 		"severity": "medium",
-		"reason": "ECS clusters should enable container insights",
+		"reason": "Require any Amazon ECS cluster to have container insights activated",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs2",
 	}
 }
 
-task_definitions_should_not_run_as_root(plan) := {rule |
+evaluate_ecs_3(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	is_root_user(container)
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.3", "opa": "aws.controls.ecs.3"},
-		"reason": "Task definitions should not run as root",
+		"severity": "high",
+		"reason": "Require any Amazon ECS task definition to specify a user that is not the root",
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs3",
 	}
 }
 
-tasks_use_awsvpc_network_mode(plan) := {rule |
+evaluate_ecs_4(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	task_doesnt_use_awsvpc(resource)
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.4", "opa": "aws.controls.ecs.4"},
-		"reason": "Tasks should use 'awsvpc' networking mode",
+		"severity": "high",
+		"reason": "Require Amazon ECS tasks to use 'awsvpc' networking mode",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs4",
 	}
 }
 
-task_containers_have_logging_configurations(plan) := {rule |
+evaluate_ecs_5(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	not container.logConfiguration
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.5", "fsbp": "ECS.9", "opa": "aws.controls.ecs.5"},
 		"severity": "high",
-		"reason": "Task containers must have a logging configuration",
+		"reason": "Require an active Amazon ECS task definition to have a logging configuration",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs5",
 	}
 }
 
-task_containers_have_read_only_root_filesystems(plan) := {rule |
+evaluate_ecs_6(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	not container.readonlyRootFilesystem
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.6", "fsbp": "ECS.5", "opa": "aws.controls.ecs.6"},
 		"severity": "high",
-		"reason": "Task containers should have read-only root filesystems",
+		"reason": "Require Amazon ECS containers to allow read-only access to the root filesystem",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs6",
 	}
 }
 
-task_containers_specify_memory_usage_limits(plan) := {rule |
+evaluate_ecs_7(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	not container.memory
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.7", "opa": "aws.controls.ecs.7"},
-		"reason": "Task containers should specify memory usage limits",
+		"severity": "high",
+		"reason": "Require an Amazon ECS task definition to have a specific memory usage limit",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs7",
 	}
 }
 
-task_definitions_have_secure_networking_modes_and_user_definitions(plan) := {rule |
+evaluate_ecs_8(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	resource.configuration.network_mode == "host"
 	some container in json.unmarshal(resource.configuration.container_definitions)
@@ -91,47 +101,51 @@ task_definitions_have_secure_networking_modes_and_user_definitions(plan) := {rul
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.8", "fsbp": "ECS.1", "opa": "aws.controls.ecs.8"},
 		"severity": "high",
-		"reason": "Task definitions should have secure networking modes and user definitions",
+		"reason": "Require Amazon ECS task definitions to have secure networking modes and user definitions",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs8",
 	}
 }
 
-services_should_not_have_public_ips(plan) := {rule |
+evaluate_ecs_9(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_service")
 	some network in resource.configuration.network_configuration
 	network.assign_public_ip == true
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.9", "fsbp": "ECS.2", "opa": "aws.controls.ecs.9"},
 		"severity": "high",
-		"reason": "Public IP should not be assigned to ECS service",
+		"reason": "Require Amazon ECS services not to assign public IP addresses automatically",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs9",
 	}
 }
 
-tasks_should_not_use_hosts_process_namespace(plan) := {rule |
+evaluate_ecs_10(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	resource.configuration.pid_mode == "host"
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.10", "fsbp": "ECS.3", "opa": "aws.controls.ecs.10"},
 		"severity": "high",
-		"reason": "ECS tasks should not use the host's process namespace",
+		"reason": "Require that Amazon ECS task definitions do not share the host's process namespace",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs10",
 	}
 }
 
-tasks_should_run_as_non_privileged(plan) := {rule |
+evaluate_ecs_11(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	container.privileged
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.11", "fsbp": "ECS.4", "opa": "aws.controls.ecs.11"},
 		"severity": "high",
-		"reason": "ECS tasks should run as non-privileged",
+		"reason": "Require an Amazon ECS container to run as non-privileged",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs11",
 	}
 }
 
-tasks_do_not_pass_secrets_in_environment_variables(plan) := {rule |
+evaluate_ecs_12(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_definition")
 	some container in json.unmarshal(resource.configuration.container_definitions)
 	some variable in container.environment
@@ -139,19 +153,21 @@ tasks_do_not_pass_secrets_in_environment_variables(plan) := {rule |
 	rule := {
 		"id": {"control_tower": "CT.ECS.PR.12", "fsbp": "ECS.8", "opa": "aws.controls.ecs.12"},
 		"severity": "high",
-		"reason": "ECS tasks do not pass secrets as container environment variables",
+		"reason": "Require that Amazon ECS task definitions do not pass secrets as container environment variables",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs12",
 	}
 }
 
-task_sets_should_not_have_public_ips(plan) := {rule |
+evaluate_ecs_13(plan) := {rule |
 	some resource in utils.resources(plan, "aws_ecs_task_set")
 	some network in resource.configuration.network_configuration
 	network.assign_public_ip == true
 	rule := {
 		"id": {"opa": "aws.controls.ecs.13", "fsbp": "ECS.16"},
-		"reason": "ECS task sets should not automatically assign public IP addresses",
+		"reason": "Require that ECS task sets do not automatically assign public IP addresses",
 		"severity": "high",
 		"resource": resource.address,
+		"docs": "https://github.com/stevensdavid/opentofu-opa/wiki/AWS-Controls#awscontrolsecs13",
 	}
 }
