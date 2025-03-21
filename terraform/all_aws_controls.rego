@@ -8,5 +8,5 @@ import input.tfplan as tfplan
 deny[reason] if {
 	errors := controls.evaluate_all(tfplan)
 	some error in errors
-	reason := sprintf("%s fails policy: %s", [error.resource, error.reason])
+	reason := sprintf("[%s] %s fails policy: %s (Docs: %s)", [error.severity, error.resource, error.reason, error.docs])
 }
