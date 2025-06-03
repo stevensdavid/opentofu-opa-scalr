@@ -4,6 +4,23 @@ import data.utils
 
 standard_engine(engine) := engine in {"mariadb", "mysql", "oracle-ee", "oracle-ee-cdb", "oracle-se2", "oracle-se2-cdb", "postgres", "sqlserver-ee", "sqlserver-se", "sqlserver-ex", "sqlserver-web"}
 
+misconfigured_monitoring(resource) if {
+	# The case of invalid monitoring intervals is handled by the Terraform provider,
+	# and the provider defaults the field to 0. We only have to check the = 0 case
+	# and missing roles.
+	resource.configuration.monitoring_interval == 0
+}
+
+misconfigured_monitoring(resource) if {
+	resource.configuration.monitoring_role_arn == ""
+}
+
+misconfigured_monitoring(resource) if {
+	is_null(resource.configuration.monitoring_role_arn)
+}
+
+misconfigured_monitoring(resource) if not resource.configuration.monitoring_role_arn
+
 backtrackable_engine_mode(null)
 
 backtrackable_engine_mode("provisioned")
@@ -58,29 +75,43 @@ invalid_backup_retention_period(instance) if {
 	not instance.backup_retention_period
 }
 
-# Used in aws.controls.rds.12
-valid_event_categories([])
+# Used in aws.controls.rds.12 and aws.controls.rds.16
+event_categories("db-cluster") := ["maintenance", "failure"]
 
-valid_event_categories(null)
+event_categories("db-instance") := ["maintenance", "failure", "configuration change"]
 
-valid_event_categories(categories) if {
-	"maintenance" in categories
-	"failure" in categories
+event_categories("db-parameter-group") := ["configuration change"]
+
+event_categories("db-security-group") := ["failure", "configuration change"]
+
+valid_event_categories(_, [])
+
+valid_event_categories(_, null)
+
+valid_event_categories(source_type, categories) if {
+	every category in event_categories(source_type) {
+		category in categories
+	}
 }
 
 valid_event_subscription(resource) if {
 	resource.configuration.enabled != false
-	valid_event_categories(resource.configuration.event_categories)
+	valid_event_categories(resource.configuration.source_type, resource.configuration.event_categories)
 }
 
 supported_log_types(engine) := log_types if {
-	engine in {"mysql", "mariadb"}
+	engine in {"mysql", "mariadb", "aurora", "aurora-mysql"}
 	log_types := ["audit", "error", "general", "slowquery"]
 }
 
 supported_log_types(engine) := log_types if {
 	engine == "postgres"
 	log_types := ["postgresql", "upgrade"]
+}
+
+supported_log_types(engine) := log_types if {
+	engine == "aurora-postgresql"
+	log_types := ["postgresql"]
 }
 
 supported_log_types(engine) := log_types if {
@@ -106,3 +137,51 @@ valid_log_configuration(resource) if {
 	resource.configuration.enabled_cloudwatch_logs_exports
 	includes_all_log_types(resource)
 }
+
+default_port(engine) := 3306 if engine in {"mysql", "mariadb"}
+
+default_port("postgres") := 5432
+
+default_port(engine) := 1433 if engine in {"sqlserver-ee", "sqlserver-se", "sqlserver-ex", "sqlserver-web"}
+
+default_port(engine) := 1521 if engine in {"oracle-ee", "oracle-se2", "oracle-ee-cdb", "oracle-se2-cdb"}
+
+uses_default_port(instance) if {
+	instance.port == default_port(instance.engine)
+}
+
+uses_default_port(instance) if not instance.port
+
+parameter_group_requires_tls(family, parameters) if {
+	family in {"mysql", "aurora-mysql", "mariadb"}
+	some parameter in parameters
+	parameter.name == "require_secure_transport"
+	parameter.value in [
+		true,
+		1, "1",
+		"true", "True", "TRUE",
+		"on", "On", "ON",
+	]
+}
+
+parameter_group_requires_tls(family, parameters) if {
+	family in {"postgres", "aurora-postgresql", "sqlserver"}
+	some parameter in parameters
+	parameter.name == "rds.force_ssl"
+	parameter.value in [
+		true,
+		1, "1",
+		"true", "True", "TRUE",
+		"on", "On", "ON",
+	]
+}
+
+invalid_kms_configuration(instance) if {
+	instance.kms_key_id == ""
+}
+
+invalid_kms_configuration(instance) if {
+	is_null(instance.kms_key_id)
+}
+
+invalid_kms_configuration(instance) if not instance.kms_key_id
